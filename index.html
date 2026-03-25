@@ -30,6 +30,8 @@
       min-width: 0;
       min-height: 0;
       position: relative; 
+      /* 이미지가 패널 밖으로 튀어나가지 않도록 숨김 처리 */
+      overflow: hidden; 
     }
     img {
       flex: 1;
@@ -41,6 +43,9 @@
       position: absolute;
       top: 0;
       left: 0;
+      /* 부드러운 확대/축소를 위한 트랜지션 (드래그 시에는 JS에서 해제함) */
+      transition: transform 0.1s ease-out;
+      transform-origin: center center;
     }
     img.hidden {
       display: none !important;
@@ -102,7 +107,6 @@
       return `${yyyy}${MM}${dd}${HH}${mm}`;
     }
 
-    // 누적 강수량용 과거 날짜 계산 (00시 기준)
     function getPastDateString(date, daysAgo) {
       const d = new Date(date);
       d.setDate(d.getDate() - daysAgo);
@@ -133,50 +137,35 @@
       
       const dt = new Date(input);
       const tm = formatTime(dt);
-      
-      // 2일, 3일 강수량용 시작 시간
       const tm_st_2day = getPastDateString(dt, 1);
       const tm_st_3day = getPastDateString(dt, 2);
 
-      // 왼쪽 기본 레이더
       document.getElementById("img1").src = `https://radar.kma.go.kr/cgi-bin/tablet2/nph-rdr_cmp_img?tm=${tm}&cmp=HSP&qcd=HSO&obs=ECHD&map=HC&size=800&xp=-9999&yp=-9999&zoom=2&wv=01&ht=800&color=C4&topo=1`;
-
-      // 오른쪽 패널 이미지들
-      // [1그룹] 레이더/영상 관련
       document.getElementById("img2").src = `https://afso.kma.go.kr/cgi/rdr/nph-rdr_cmp1_img?tm=${tm}&cmp=HSP&qcd=HSLP&obs=ECHD&color=C4&aws=0&acc=0&map=HC&grid=2&legend=1&size=700&itv=5&zoom_level=1&zoom_x=3350000&zoom_y=5120000&gov=`;
       document.getElementById("img3").src = `https://radar.kma.go.kr/cgi-bin/tablet2/nph-rdr_cmp_img?tm=${tm}&cmp=HSP&qcd=HSO&obs=ECHD&map=E&size=800&xp=330&yp=620&zoom=5&wv=01&ht=800&color=C4&topo=1`;
       document.getElementById("img6").src = `https://afso.kma.go.kr/cgi/lgt/nph-lgt_dst_img?obs=lgt_dst&tm=${tm}&val=1&stn=1&obj=bn&map=HC&grid=2&legend=1&size=495.00&itv=30&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:RDRLGT`;
       document.getElementById("img7").src = `https://afso.kma.go.kr/cgi/rdr/nph-rdr_cmp1_img?tm=${tm}&cmp=HCI2&qcd=EXT&obs=ECHO&color=C4&aws=0&acc=&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=`;
       document.getElementById("img8").src = `https://afso.kma.go.kr/cgi/rdr/nph-rdr_cmp1_img?tm=${tm}&cmp=HAIL&qcd=EXT&obs=ECHO&color=C4&aws=0&acc=&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=`;
       document.getElementById("img13").src = `https://afso.kma.go.kr/cgi/rdr/nph-rdr_sfc_pty_img?tm=${tm}&obs=RNSN&cmp=SFC&griddisp=0&rnexdisp=2&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=1&zoom_x=3350000&zoom_y=5120000&gov=&_DT=`;
-
-      // [2그룹] 특보 관련
       document.getElementById("img4").src = `https://apihub.kma.go.kr/api/typ03/cgi/wrn/nph-wrn7?out=0&tmef=1&city=1&name=1&tm=${tm}&lon=127&lat=37.59&range=80&size=440&wrn=W,R,C,D,O,V,T,S,Y,H,&authKey=ERmgGaXgS5CZoBml4OuQVw`;
       document.getElementById("img5").src = `https://apihub.kma.go.kr/api/typ03/cgi/wrn/nph-wrn7?out=0&tmef=1&city=1&name=1&tm=${tm}&lon=127&lat=37.59&range=80&size=440&lv=1&wrn=W,R,C,D,O,V,T,S,Y,H,&authKey=ERmgGaXgS5CZoBml4OuQVw`;
-
-      // [3그룹] 강수량 관련
       document.getElementById("img21").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=rn_ex&tm=${tm}&val=1&stn=1&obj=mq&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:RNEX`;
       document.getElementById("img22").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=rn_60m&tm=${tm}&val=1&stn=1&obj=mq&map=HC&grid=2&legend=1&size=495.00&itv=60&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:RN60M`;
       document.getElementById("img23").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=rn_03h&tm=${tm}&stn=1&obj=bn&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:RN03H`;
       document.getElementById("img24").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=rn_day&tm=${tm}&val=1&stn=1&obj=mq&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:RNDAY1`;
       document.getElementById("img25").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=rn_acc&tm=${tm}&tm_st=${tm_st_2day}&stn=1&obj=bn&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:RN02D`;
       document.getElementById("img26").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=rn_acc&tm=${tm}&tm_st=${tm_st_3day}&stn=1&obj=bn&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:RN03D`;
-
-      // [4그룹] 온도/바람/시정
       document.getElementById("img20").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=ta&tm=${tm}&val=1&stn=1&obj=mq&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:TA`;
       document.getElementById("img16").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=ta_chi&tm=${tm}&val=1&stn=1&obj=mq&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=1&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:TACHI`;
       document.getElementById("img17").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=vis&tm=${tm}&val=1&stn=1&obj=bn&map=HC&grid=2&legend=1&size=495.00&itv=10&zoom_level=1&zoom_x=3350000&zoom_y=5120000&gov=&_DT=`;
       document.getElementById("img18").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=ws_10m&tm=${tm}&val=1&stn=1&obj=mq&ws_ms=ms&map=HC&grid=2&legend=1&size=495.00&itv=10&zoom_level=1&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:WS10M`;
       document.getElementById("img19").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=ws_ins&tm=${tm}&val=1&stn=1&obj=mq&ws_ms=ms&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=`;
-
-      // [5그룹] 눈/도로 (img11 추가됨)
       document.getElementById("img9").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=sd_3hr&tm=${tm}&val=1&stn=1&obj=bn&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=1&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:SD3HR`;
       document.getElementById("img10").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=sd_24h&tm=${tm}&val=1&stn=1&obj=bn&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=1&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:SD24H`;
-      document.getElementById("img11").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=sd_day&tm=${tm}&val=1&stn=1&obj=bn&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:SDDAY`; // 신적설(일)
+      document.getElementById("img11").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=sd_day&tm=${tm}&val=1&stn=1&obj=bn&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:SDDAY`;
       document.getElementById("img12").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=sd_tot&tm=${tm}&val=1&stn=1&obj=bn&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=1&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:SDTOT`;
       document.getElementById("img14").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=tw_win&tm=${tm}&val=1&stn=1&obj=mq&map=HC&grid=2&legend=1&size=495&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=`;
       document.getElementById("img15").src = `https://afso.kma.go.kr/cgi/road/nph-road_aws3_min_img1?obs=road_fzrp&tm=${tm}&val=1&stn=1&obj=mq3d&disp=1&grid=1&legend=1&map=HC&size=495&itv=5&unit=&city=0&zoom_level=3&zoom_x=3350000&zoom_y=5120000&gov=`;
-
       document.getElementById("timeLabel").innerText = `선택된 시각: ${tm}`;
     }
 
@@ -207,6 +196,9 @@
       if (selectedImage) {
         selectedImage.classList.remove('hidden');
       }
+      
+      // 이미지가 변경되면 오른쪽 패널의 줌 상태를 초기화합니다.
+      resetZoom('right-panel');
     }
 
     function toggleAutoRefresh(checked) {
@@ -216,8 +208,99 @@
       }
       if (checked) {
         setNow();
-        autoTimer = setInterval(setNow, 300000); // 5분마다 자동 갱신
+        autoTimer = setInterval(setNow, 300000);
       }
+    }
+
+    // --- 확대/축소 및 드래그(Pan) 기능 구현 ---
+    const zoomStates = {};
+
+    function resetZoom(panelId) {
+      if(zoomStates[panelId]) {
+        zoomStates[panelId].scale = 1;
+        zoomStates[panelId].translateX = 0;
+        zoomStates[panelId].translateY = 0;
+        applyTransform(panelId);
+      }
+    }
+
+    function applyTransform(panelId) {
+      const panel = document.getElementById(panelId);
+      const state = zoomStates[panelId];
+      const images = panel.querySelectorAll('img');
+      
+      images.forEach(img => {
+        // 드래그 중일 때는 부드러운 효과(transition)를 꺼서 반응속도를 높입니다.
+        img.style.transition = state.isDragging ? 'none' : 'transform 0.1s ease-out';
+        img.style.transform = `translate(${state.translateX}px, ${state.translateY}px) scale(${state.scale})`;
+      });
+    }
+
+    function enableZoomAndPan(panelId) {
+      const panel = document.getElementById(panelId);
+      zoomStates[panelId] = { scale: 1, translateX: 0, translateY: 0, isDragging: false, startX: 0, startY: 0 };
+      const state = zoomStates[panelId];
+
+      // 마우스 휠로 확대/축소
+      panel.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const zoomIntensity = 0.1;
+        
+        if (e.deltaY < 0) {
+          state.scale += zoomIntensity; // 확대
+        } else {
+          state.scale -= zoomIntensity; // 축소
+        }
+        
+        // 최소 1배, 최대 5배까지만 확대되도록 제한
+        state.scale = Math.min(Math.max(1, state.scale), 5);
+        
+        // 1배율로 돌아오면 위치도 원상복구
+        if (state.scale === 1) {
+          state.translateX = 0;
+          state.translateY = 0;
+          panel.style.cursor = 'default';
+        } else {
+          panel.style.cursor = 'grab';
+        }
+        
+        applyTransform(panelId);
+      });
+
+      // 마우스 클릭 시 드래그 시작
+      panel.addEventListener('mousedown', (e) => {
+        if (state.scale > 1) {
+          state.isDragging = true;
+          state.startX = e.clientX - state.translateX;
+          state.startY = e.clientY - state.translateY;
+          panel.style.cursor = 'grabbing';
+        }
+      });
+
+      // 마우스 이동 시 이미지 이동
+      panel.addEventListener('mousemove', (e) => {
+        if (!state.isDragging) return;
+        e.preventDefault();
+        state.translateX = e.clientX - state.startX;
+        state.translateY = e.clientY - state.startY;
+        applyTransform(panelId);
+      });
+
+      // 마우스 버튼을 떼거나 패널 밖으로 나가면 드래그 종료
+      const stopDrag = () => {
+        if (state.isDragging) {
+          state.isDragging = false;
+          panel.style.cursor = state.scale > 1 ? 'grab' : 'default';
+          applyTransform(panelId);
+        }
+      };
+      
+      panel.addEventListener('mouseup', stopDrag);
+      panel.addEventListener('mouseleave', stopDrag);
+      
+      panel.addEventListener('mouseenter', () => {
+        if (state.scale > 1) panel.style.cursor = 'grab';
+      });
     }
 
     window.addEventListener('load', () => {
@@ -226,12 +309,16 @@
       document.getElementById('datetime').addEventListener('change', updateImages);
       document.getElementById('imageSelect').addEventListener('change', (e) => showImage(e.target.value));
       showImage('img2');
+
+      // 좌우 패널에 확대/축소/드래그 기능 활성화
+      enableZoomAndPan('left-panel');
+      enableZoomAndPan('right-panel');
     });
   </script>
 </head>
 <body>
   <div class="viewer">
-    <div class="panel">
+    <div class="panel" id="left-panel">
       <img id="img1" alt="Radar Image 1">
     </div>
     
@@ -261,7 +348,8 @@
       
       <img id="img9" alt="신적설 3시간" class="hidden">
       <img id="img10" alt="신적설 24시간" class="hidden">
-      <img id="img11" alt="신적설(일)" class="hidden"> <img id="img12" alt="현재 적설량" class="hidden">
+      <img id="img11" alt="신적설(일)" class="hidden"> 
+      <img id="img12" alt="현재 적설량" class="hidden">
       <img id="img14" alt="습구온도 1.2" class="hidden">
       <img id="img15" alt="도로살얼음가능성" class="hidden">
     </div>
@@ -326,7 +414,8 @@
         
         <option value="img9">신적설 3시간</option>
         <option value="img10">신적설 24시간</option>
-        <option value="img11">신적설(일)</option> <option value="img12">현재 적설량</option>
+        <option value="img11">신적설(일)</option> 
+        <option value="img12">현재 적설량</option>
         <option value="img14">습구온도 1.2</option>
         <option value="img15">도로살얼음가능성</option>
       </select>
