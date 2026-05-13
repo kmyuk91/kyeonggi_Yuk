@@ -155,7 +155,13 @@
       document.getElementById("img24").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=rn_day&tm=${tm}&val=1&stn=1&obj=mq&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:RNDAY1`;
       document.getElementById("img25").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=rn_acc&tm=${tm}&tm_st=${tm_st_2day}&stn=1&obj=bn&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:RN02D`;
       document.getElementById("img26").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=rn_acc&tm=${tm}&tm_st=${tm_st_3day}&stn=1&obj=bn&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:RN03D`;
+      
       document.getElementById("img20").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=ta&tm=${tm}&val=1&stn=1&obj=mq&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:TA`;
+      
+      // ▼ 이슬점온도(img27) 추가 부분 ▼
+      document.getElementById("img27").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=td&tm=${tm}&val=1&stn=1&obj=mq&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:Ta`;
+      // ▲ 이슬점온도(img27) 추가 부분 ▲
+
       document.getElementById("img16").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=ta_chi&tm=${tm}&val=1&stn=1&obj=mq&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=1&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:TACHI`;
       document.getElementById("img17").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=vis&tm=${tm}&val=1&stn=1&obj=bn&map=HC&grid=2&legend=1&size=495.00&itv=10&zoom_level=1&zoom_x=3350000&zoom_y=5120000&gov=&_DT=`;
       document.getElementById("img18").src = `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=ws_10m&tm=${tm}&val=1&stn=1&obj=mq&ws_ms=ms&map=HC&grid=2&legend=1&size=495.00&itv=10&zoom_level=1&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:WS10M`;
@@ -197,7 +203,6 @@
         selectedImage.classList.remove('hidden');
       }
       
-      // 이미지가 변경되면 오른쪽 패널의 줌 상태를 초기화합니다.
       resetZoom('right-panel');
     }
 
@@ -212,7 +217,6 @@
       }
     }
 
-    // --- 확대/축소 및 드래그(Pan) 기능 구현 ---
     const zoomStates = {};
 
     function resetZoom(panelId) {
@@ -230,7 +234,6 @@
       const images = panel.querySelectorAll('img');
       
       images.forEach(img => {
-        // 드래그 중일 때는 부드러운 효과(transition)를 꺼서 반응속도를 높입니다.
         img.style.transition = state.isDragging ? 'none' : 'transform 0.1s ease-out';
         img.style.transform = `translate(${state.translateX}px, ${state.translateY}px) scale(${state.scale})`;
       });
@@ -241,21 +244,18 @@
       zoomStates[panelId] = { scale: 1, translateX: 0, translateY: 0, isDragging: false, startX: 0, startY: 0 };
       const state = zoomStates[panelId];
 
-      // 마우스 휠로 확대/축소
       panel.addEventListener('wheel', (e) => {
         e.preventDefault();
         const zoomIntensity = 0.1;
         
         if (e.deltaY < 0) {
-          state.scale += zoomIntensity; // 확대
+          state.scale += zoomIntensity;
         } else {
-          state.scale -= zoomIntensity; // 축소
+          state.scale -= zoomIntensity;
         }
         
-        // 최소 1배, 최대 5배까지만 확대되도록 제한
         state.scale = Math.min(Math.max(1, state.scale), 5);
         
-        // 1배율로 돌아오면 위치도 원상복구
         if (state.scale === 1) {
           state.translateX = 0;
           state.translateY = 0;
@@ -267,7 +267,6 @@
         applyTransform(panelId);
       });
 
-      // 마우스 클릭 시 드래그 시작
       panel.addEventListener('mousedown', (e) => {
         if (state.scale > 1) {
           state.isDragging = true;
@@ -277,7 +276,6 @@
         }
       });
 
-      // 마우스 이동 시 이미지 이동
       panel.addEventListener('mousemove', (e) => {
         if (!state.isDragging) return;
         e.preventDefault();
@@ -286,7 +284,6 @@
         applyTransform(panelId);
       });
 
-      // 마우스 버튼을 떼거나 패널 밖으로 나가면 드래그 종료
       const stopDrag = () => {
         if (state.isDragging) {
           state.isDragging = false;
@@ -310,7 +307,6 @@
       document.getElementById('imageSelect').addEventListener('change', (e) => showImage(e.target.value));
       showImage('img2');
 
-      // 좌우 패널에 확대/축소/드래그 기능 활성화
       enableZoomAndPan('left-panel');
       enableZoomAndPan('right-panel');
     });
@@ -341,6 +337,7 @@
       <img id="img26" alt="3일 강수량" class="hidden">
       
       <img id="img20" alt="현재온도" class="hidden">
+      <img id="img27" alt="이슬점온도" class="hidden">
       <img id="img16" alt="체감온도" class="hidden">
       <img id="img17" alt="지상시정" class="hidden">
       <img id="img18" alt="평균풍속(10분)" class="hidden">
@@ -405,6 +402,7 @@
         <option disabled>────────────</option>
         
         <option value="img20">현재온도</option>
+        <option value="img27">이슬점온도</option>
         <option value="img16">체감온도</option>
         <option value="img17">지상시정</option>
         <option value="img18">평균풍속(10분)</option>
