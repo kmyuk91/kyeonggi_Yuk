@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>KMA Radar Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      background: #fff;
+      color: #000;
+      display: flex;
+      flex-direction: column;
+    }
+    .viewer {
+      flex: 1;
+      display: flex;
+      height: calc(100% - 84px);
+    }
+    .panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+      position: relative; 
+      overflow: hidden; 
+    }
+    img {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #fff;
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      transition: transform 0.1s ease-out;
+      transform-origin: center center;
+    }
+    img.hidden {
+      display: none !important;
+    }
+    
+    /* 양쪽 패널 모두 이미지가 절대 위치로 겹쳐서 표시되도록 통일 */
+    .panel img {
+      position: absolute;
+    }
+
+    .controls {
+      background: #fff;
+      padding: 10px;
+      border-top: 2px solid #ccc;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      height: 84px;
+      box-sizing: border-box;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    .group { display: inline-flex; align-items: center; gap: 6px; }
+    
+    .controls button, .controls input[type="datetime-local"], .controls label, .controls select {
+      font-size: 14px;
+    }
+    .controls button, .controls input[type="datetime-local"], .controls select {
+      padding: 6px 10px;
+      border-radius: 5px;
+      border: 1px solid #999;
+      cursor: pointer;
+      background: #f5f5f5;
+    }
+    .controls button:hover { background: #e0e0e0; }
+    #timeLabel { font-weight: bold; margin-left: 8px; }
+
+    @media (max-width: 768px) {
+      .viewer {
+        flex-direction: column;
+      }
+    }
+  </style>
+  <script>
+    let autoTimer = null;
+
+    function formatTime(date) {
+      const yyyy = date.getFullYear();
+      const MM = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      const HH = String(date.getHours()).padStart(2, '0');
+      const mm = String(date.getMinutes()).padStart(2, '0');
+      return `${yyyy}${MM}${dd}${HH}${mm}`;
+    }
+
+    function getPastDateString(date, daysAgo) {
+      const d = new Date(date);
+      d.setDate(d.getDate() - daysAgo);
+      const yyyy = d.getFullYear();
+      const MM = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}${MM}${dd}00`;
+    }
+
+    function getRoundedNow() {
+      const now = new Date();
+      const minutes = Math.floor(now.getMinutes() / 5) * 5;
+      now.setMinutes(minutes);
+      now.setSeconds(0);
+      now.setMilliseconds(0);
+      return now;
+    }
+
+    function toLocalISO(dt) {
+      const tzAdjusted = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000);
+      return tzAdjusted.toISOString().slice(0, 16);
+    }
+
+    // 좌우 패널에 동일한 이미지 URL을 일괄 적용하는 헬퍼 함수
+    function setBothSrc(id, url) {
+      const lEl = document.getElementById("l-" + id);
+      const rEl = document.getElementById("r-" + id);
+      if (lEl) lEl.src = url;
+      if (rEl) rEl.src = url;
+    }
+
+    function updateImages() {
+      const inputEl = document.getElementById("datetime");
+      const input = inputEl.value;
+      if (!input) return;
+      
+      const dt = new Date(input);
+      const tm = formatTime(dt);
+      const tm_st_2day = getPastDateString(dt, 1);
+      const tm_st_3day = getPastDateString(dt, 2);
+
+      setBothSrc("img1", `https://radar.kma.go.kr/cgi-bin/tablet2/nph-rdr_cmp_img?tm=${tm}&cmp=HSP&qcd=HSO&obs=ECHD&map=HC&size=800&xp=-9999&yp=-9999&zoom=2&wv=01&ht=800&color=C4&topo=1`);
+      setBothSrc("img2", `https://afso.kma.go.kr/cgi/rdr/nph-rdr_cmp1_img?tm=${tm}&cmp=HSP&qcd=HSLP&obs=ECHD&color=C4&aws=0&acc=0&map=HC&grid=2&legend=1&size=700&itv=5&zoom_level=1&zoom_x=3350000&zoom_y=5120000&gov=`);
+      setBothSrc("img3", `https://radar.kma.go.kr/cgi-bin/tablet2/nph-rdr_cmp_img?tm=${tm}&cmp=HSP&qcd=HSO&obs=ECHD&map=E&size=800&xp=330&yp=620&zoom=5&wv=01&ht=800&color=C4&topo=1`);
+      setBothSrc("img6", `https://afso.kma.go.kr/cgi/lgt/nph-lgt_dst_img?obs=lgt_dst&tm=${tm}&val=1&stn=1&obj=bn&map=HC&grid=2&legend=1&size=495.00&itv=30&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:RDRLGT`);
+      setBothSrc("img7", `https://afso.kma.go.kr/cgi/rdr/nph-rdr_cmp1_img?tm=${tm}&cmp=HCI2&qcd=EXT&obs=ECHO&color=C4&aws=0&acc=&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=`);
+      setBothSrc("img8", `https://afso.kma.go.kr/cgi/rdr/nph-rdr_cmp1_img?tm=${tm}&cmp=HAIL&qcd=EXT&obs=ECHO&color=C4&aws=0&acc=&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=`);
+      setBothSrc("img13", `https://afso.kma.go.kr/cgi/rdr/nph-rdr_sfc_pty_img?tm=${tm}&obs=RNSN&cmp=SFC&griddisp=0&rnexdisp=2&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=1&zoom_x=3350000&zoom_y=5120000&gov=&_DT=`);
+      setBothSrc("img4", `https://apihub.kma.go.kr/api/typ03/cgi/wrn/nph-wrn7?out=0&tmef=1&city=1&name=1&tm=${tm}&lon=127&lat=37.59&range=80&size=440&wrn=W,R,C,D,O,V,T,S,Y,H,&authKey=ERmgGaXgS5CZoBml4OuQVw`);
+      setBothSrc("img5", `https://apihub.kma.go.kr/api/typ03/cgi/wrn/nph-wrn7?out=0&tmef=1&city=1&name=1&tm=${tm}&lon=127&lat=37.59&range=80&size=440&lv=1&wrn=W,R,C,D,O,V,T,S,Y,H,&authKey=ERmgGaXgS5CZoBml4OuQVw`);
+      setBothSrc("img21", `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=rn_ex&tm=${tm}&val=1&stn=1&obj=mq&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:RNEX`);
+      setBothSrc("img28", `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=rn_15m&tm=${tm}&val=1&stn=1&obj=mq&map=HC&grid=2&legend=1&size=495.00&itv=60&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:RN15M`);
+      setBothSrc("img22", `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=rn_60m&tm=${tm}&val=1&stn=1&obj=mq&map=HC&grid=2&legend=1&size=495.00&itv=60&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:RN60M`);
+      setBothSrc("img23", `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=rn_03h&tm=${tm}&stn=1&obj=bn&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:RN03H`);
+      setBothSrc("img24", `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=rn_day&tm=${tm}&val=1&stn=1&obj=mq&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:RNDAY1`);
+      setBothSrc("img25", `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=rn_acc&tm=${tm}&tm_st=${tm_st_2day}&stn=1&obj=bn&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:RN02D`);
+      setBothSrc("img26", `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=rn_acc&tm=${tm}&tm_st=${tm_st_3day}&stn=1&obj=bn&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:RN03D`);
+      setBothSrc("img20", `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=ta&tm=${tm}&val=1&stn=1&obj=mq&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:TA`);
+      setBothSrc("img27", `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=td&tm=${tm}&val=1&stn=1&obj=mq&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:Ta`);
+      setBothSrc("img16", `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=ta_chi&tm=${tm}&val=1&stn=1&obj=mq&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=1&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:TACHI`);
+      setBothSrc("img17", `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=vis&tm=${tm}&val=1&stn=1&obj=bn&map=HC&grid=2&legend=1&size=495.00&itv=10&zoom_level=1&zoom_x=3350000&zoom_y=5120000&gov=&_DT=`);
+      setBothSrc("img18", `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=ws_10m&tm=${tm}&val=1&stn=1&obj=mq&ws_ms=ms&map=HC&grid=2&legend=1&size=495.00&itv=10&zoom_level=1&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:WS10M`);
+      setBothSrc("img19", `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=ws_ins&tm=${tm}&val=1&stn=1&obj=mq&ws_ms=ms&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=`);
+      setBothSrc("img9", `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=sd_3hr&tm=${tm}&val=1&stn=1&obj=bn&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=1&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:SD3HR`);
+      setBothSrc("img10", `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=sd_24h&tm=${tm}&val=1&stn=1&obj=bn&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=1&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:SD24H`);
+      setBothSrc("img11", `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=sd_day&tm=${tm}&val=1&stn=1&obj=bn&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:SDDAY`);
+      setBothSrc("img12", `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=sd_tot&tm=${tm}&val=1&stn=1&obj=bn&map=HC&grid=2&legend=1&size=495.00&itv=5&zoom_level=1&zoom_x=3350000&zoom_y=5120000&gov=&_DT=RSW:SDTOT`);
+      setBothSrc("img14", `https://afso.kma.go.kr/cgi/aws3/nph-aws_min_img1?obs=tw_win&tm=${tm}&val=1&stn=1&obj=mq&map=HC&grid=2&legend=1&size=495&itv=5&zoom_level=2&zoom_x=3350000&zoom_y=5120000&gov=&_DT=`);
+      setBothSrc("img15", `https://afso.kma.go.kr/cgi/road/nph-road_aws3_min_img1?obs=road_fzrp&tm=${tm}&val=1&stn=1&obj=mq3d&disp=1&grid=1&legend=1&map=HC&size=495&itv=5&unit=&city=0&zoom_level=3&zoom_x=3350000&zoom_y=5120000&gov=`);
+      
+      document.getElementById("timeLabel").innerText = `선택된 시각: ${tm}`;
+    }
+
+    function setNow() {
+      const now = getRoundedNow();
+      document.getElementById("datetime").value = toLocalISO(now);
+      updateImages();
+    }
+
+    function shiftTime(mins) {
+      const inputEl = document.getElementById("datetime");
+      const input = inputEl.value;
+      if (!input) return;
+      const dt = new Date(input);
+      dt.setMinutes(dt.getMinutes() + mins);
+      inputEl.value = toLocalISO(dt);
+      updateImages();
+    }
+
+    function showLeftImage(imgId) {
+      const images = document.querySelectorAll('#left-panel img');
+      images.forEach(img => img.classList.add('hidden'));
+      const selectedImage = document.getElementById("l-" + imgId);
+      if (selectedImage) {
+        selectedImage.classList.remove('hidden');
+      }
+      resetZoom('left-panel');
+    }
+
+    function showRightImage(imgId) {
+      const images = document.querySelectorAll('#right-panel img');
+      images.forEach(img => img.classList.add('hidden'));
+      const selectedImage = document.getElementById("r-" + imgId);
+      if (selectedImage) {
+        selectedImage.classList.remove('hidden');
+      }
+      resetZoom('right-panel');
+    }
+
+    function toggleAutoRefresh(checked) {
+      if (autoTimer) {
+        clearInterval(autoTimer);
+        autoTimer = null;
+      }
+      if (checked) {
+        setNow();
+        autoTimer = setInterval(setNow, 300000);
+      }
+    }
+
+    const zoomStates = {};
+
+    function resetZoom(panelId) {
+      if(zoomStates[panelId]) {
+        zoomStates[panelId].scale = 1;
+        zoomStates[panelId].translateX = 0;
+        zoomStates[panelId].translateY = 0;
+        applyTransform(panelId);
+      }
+    }
+
+    function applyTransform(panelId) {
+      const panel = document.getElementById(panelId);
+      const state = zoomStates[panelId];
+      const images = panel.querySelectorAll('img');
+      
+      images.forEach(img => {
+        img.style.transition = state.isDragging ? 'none' : 'transform 0.1s ease-out';
+        img.style.transform = `translate(${state.translateX}px, ${state.translateY}px) scale(${state.scale})`;
+      });
+    }
+
+    function enableZoomAndPan(panelId) {
+      const panel = document.getElementById(panelId);
+      zoomStates[panelId] = { scale: 1, translateX: 0, translateY: 0, isDragging: false, startX: 0, startY: 0 };
+      const state = zoomStates[panelId];
+
+      panel.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const zoomIntensity = 0.1;
+        
+        if (e.deltaY < 0) {
+          state.scale += zoomIntensity;
+        } else {
+          state.scale -= zoomIntensity;
+        }
+        
+        state.scale = Math.min(Math.max(1, state.scale), 5);
+        
+        if (state.scale === 1) {
+          state.translateX = 0;
+          state.translateY = 0;
+          panel.style.cursor = 'default';
+        } else {
+          panel.style.cursor = 'grab';
+        }
+        
+        applyTransform(panelId);
+      });
+
+      panel.addEventListener('mousedown', (e) => {
+        if (state.scale > 1) {
+          state.isDragging = true;
+          state.startX = e.clientX - state.translateX;
+          state.startY = e.clientY - state.translateY;
+          panel.style.cursor = 'grabbing';
+        }
+      });
+
+      panel.addEventListener('mousemove', (e) => {
+        if (!state.isDragging) return;
+        e.preventDefault();
+        state.translateX = e.clientX - state.startX;
+        state.translateY = e.clientY - state.startY;
+        applyTransform(panelId);
+      });
+
+      const stopDrag = () => {
+        if (state.isDragging) {
+          state.isDragging = false;
+          panel.style.cursor = state.scale > 1 ? 'grab' : 'default';
+          applyTransform(panelId);
+        }
+      };
+      
+      panel.addEventListener('mouseup', stopDrag);
+      panel.addEventListener('mouseleave', stopDrag);
+      
+      panel.addEventListener('mouseenter', () => {
+        if (state.scale > 1) panel.style.cursor = 'grab';
+      });
+    }
+
+    window.addEventListener('load', () => {
+      setNow();
+      document.getElementById('autoRefresh').addEventListener('change', (e) => toggleAutoRefresh(e.target.checked));
+      document.getElementById('datetime').addEventListener('change', updateImages);
+      
+      // 좌우 독립 드롭다운 이벤트 연결
+      document.getElementById('leftSelect').addEventListener('change', (e) => showLeftImage(e.target.value));
+      document.getElementById('imageSelect').addEventListener('change', (e) => showRightImage(e.target.value));
+      
+      // 초기 기본 화면 설정: 좌측 '레이더(전국)', 우측 '레이더(경기도)'
+      showLeftImage('img1');
+      showRightImage('img2');
+
+      enableZoomAndPan('left-panel');
+      enableZoomAndPan('right-panel');
+    });
+  </script>
+</head>
+<body>
+  <div class="viewer">
+    <!-- 왼쪽 패널 (모든 이미지 포함) -->
+    <div class="panel" id="left-panel">
+      <img id="l-img1" alt="레이더(전국)">
+      <img id="l-img2" alt="레이더(경기도)" class="hidden">
+      <img id="l-img3" alt="레이더+바람(경기도)" class="hidden">
+      <img id="l-img6" alt="낙뢰영상" class="hidden">
+      <img id="l-img7" alt="레이더 수상체" class="hidden">
+      <img id="l-img8" alt="레이더 우박" class="hidden">
+      <img id="l-img13" alt="눈/비영역" class="hidden">
+      <img id="l-img4" alt="특보발표 현황" class="hidden">
+      <img id="l-img5" alt="예비특보 현황" class="hidden">
+      <img id="l-img21" alt="강우 감지" class="hidden">
+      <img id="l-img28" alt="15분 강수량" class="hidden">
+      <img id="l-img22" alt="1시간 강수량" class="hidden">
+      <img id="l-img23" alt="3시간 강수량" class="hidden">
+      <img id="l-img24" alt="일강수량" class="hidden">
+      <img id="l-img25" alt="2일 강수량" class="hidden">
+      <img id="l-img26" alt="3일 강수량" class="hidden">
+      <img id="l-img20" alt="현재온도" class="hidden">
+      <img id="l-img27" alt="이슬점온도" class="hidden">
+      <img id="l-img16" alt="체감온도" class="hidden">
+      <img id="l-img17" alt="지상시정" class="hidden">
+      <img id="l-img18" alt="평균풍속(10분)" class="hidden">
+      <img id="l-img19" alt="순간풍속(10분)" class="hidden">
+      <img id="l-img9" alt="신적설 3시간" class="hidden">
+      <img id="l-img10" alt="신적설 24시간" class="hidden">
+      <img id="l-img11" alt="신적설(일)" class="hidden"> 
+      <img id="l-img12" alt="현재 적설량" class="hidden">
+      <img id="l-img14" alt="습구온도 1.2" class="hidden">
+      <img id="l-img15" alt="도로살얼음가능성" class="hidden">
+    </div>
+    
+    <!-- 오른쪽 패널 (모든 이미지 포함) -->
+    <div class="panel" id="right-panel">
+      <img id="r-img1" alt="레이더(전국)" class="hidden">
+      <img id="r-img2" alt="레이더(경기도)">
+      <img id="r-img3" alt="레이더+바람(경기도)" class="hidden">
+      <img id="r-img6" alt="낙뢰영상" class="hidden">
+      <img id="r-img7" alt="레이더 수상체" class="hidden">
+      <img id="r-img8" alt="레이더 우박" class="hidden">
+      <img id="r-img13" alt="눈/비영역" class="hidden">
+      <img id="r-img4" alt="특보발표 현황" class="hidden">
+      <img id="r-img5" alt="예비특보 현황" class="hidden">
+      <img id="r-img21" alt="강우 감지" class="hidden">
+      <img id="r-img28" alt="15분 강수량" class="hidden">
+      <img id="r-img22" alt="1시간 강수량" class="hidden">
+      <img id="r-img23" alt="3시간 강수량" class="hidden">
+      <img id="r-img24" alt="일강수량" class="hidden">
+      <img id="r-img25" alt="2일 강수량" class="hidden">
+      <img id="r-img26" alt="3일 강수량" class="hidden">
+      <img id="r-img20" alt="현재온도" class="hidden">
+      <img id="r-img27" alt="이슬점온도" class="hidden">
+      <img id="r-img16" alt="체감온도" class="hidden">
+      <img id="r-img17" alt="지상시정" class="hidden">
+      <img id="r-img18" alt="평균풍속(10분)" class="hidden">
+      <img id="r-img19" alt="순간풍속(10분)" class="hidden">
+      <img id="r-img9" alt="신적설 3시간" class="hidden">
+      <img id="r-img10" alt="신적설 24시간" class="hidden">
+      <img id="r-img11" alt="신적설(일)" class="hidden"> 
+      <img id="r-img12" alt="현재 적설량" class="hidden">
+      <img id="r-img14" alt="습구온도 1.2" class="hidden">
+      <img id="r-img15" alt="도로살얼음가능성" class="hidden">
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="group">
+      <label for="datetime">시간 선택:</label>
+      <input type="datetime-local" id="datetime">
+      <button onclick="updateImages()">적용</button>
+      <button onclick="setNow()">현재</button>
+      <label class="group" style="gap:4px; cursor:pointer;">
+        <input type="checkbox" id="autoRefresh" style="cursor:pointer;">
+        자동 갱신(5분)
+      </label>
+    </div>
+
+    <div class="group">
+      <button onclick="shiftTime(-60)">-60분</button>
+      <button onclick="shiftTime(-30)">-30분</button>
+      <button onclick="shiftTime(-10)">-10분</button>
+      <button onclick="shiftTime(-5)">-5분</button>
+      <button onclick="shiftTime(5)">+5분</button>
+      <button onclick="shiftTime(10)">+10분</button>
+      <button onclick="shiftTime(30)">+30분</button>
+      <button onclick="shiftTime(60)">+60분</button>
+    </div>
+
+    <div class="group">
+      <!-- 왼쪽 뷰 선택 드롭다운 -->
+      <label for="leftSelect">왼쪽 뷰:</label>
+      <select id="leftSelect">
+        <option value="img1" selected>레이더(전국)</option>
+        <option value="img2">레이더(경기도)</option>
+        <option value="img3">레이더+바람(경기도)</option>
+        <option value="img6">낙뢰영상</option>
+        <option value="img7">레이더 수상체</option>
+        <option value="img8">레이더 우박</option>
+        <option value="img13">눈/비영역</option>
+        <option disabled>────────────</option>
+        <option value="img4">특보발표 현황</option>
+        <option value="img5">예비특보 현황</option>
+        <option disabled>────────────</option>
+        <option value="img21">강우감지</option>
+        <option value="img28">15분 강수량</option>
+        <option value="img22">1시간 강수량</option>
+        <option value="img23">3시간 강수량</option>
+        <option value="img24">일강수량</option>
+        <option value="img25">2일강수량</option>
+        <option value="img26">3일강수량</option>
+        <option disabled>────────────</option>
+        <option value="img20">현재온도</option>
+        <option value="img27">이슬점온도</option>
+        <option value="img16">체감온도</option>
+        <option value="img17">지상시정</option>
+        <option value="img18">평균풍속(10분)</option>
+        <option value="img19">순간풍속(10분)</option>
+        <option disabled>────────────</option>
+        <option value="img9">신적설 3시간</option>
+        <option value="img10">신적설 24시간</option>
+        <option value="img11">신적설(일)</option> 
+        <option value="img12">현재 적설량</option>
+        <option value="img14">습구온도 1.2</option>
+        <option value="img15">도로살얼음가능성</option>
+      </select>
+
+      <!-- 오른쪽 뷰 선택 드롭다운 -->
+      <label for="imageSelect" style="margin-left: 10px;">오른쪽 뷰:</label>
+      <select id="imageSelect">
+        <option value="img2" selected>레이더(경기도)</option>
+        <option value="img1">레이더(전국)</option>
+        <option value="img3">레이더+바람(경기도)</option>
+        <option value="img6">낙뢰영상</option>
+        <option value="img7">레이더 수상체</option>
+        <option value="img8">레이더 우박</option>
+        <option value="img13">눈/비영역</option>
+        <option disabled>────────────</option>
+        <option value="img4">특보발표 현황</option>
+        <option value="img5">예비특보 현황</option>
+        <option disabled>────────────</option>
+        <option value="img21">강우감지</option>
+        <option value="img28">15분 강수량</option>
+        <option value="img22">1시간 강수량</option>
+        <option value="img23">3시간 강수량</option>
+        <option value="img24">일강수량</option>
+        <option value="img25">2일강수량</option>
+        <option value="img26">3일강수량</option>
+        <option disabled>────────────</option>
+        <option value="img20">현재온도</option>
+        <option value="img27">이슬점온도</option>
+        <option value="img16">체감온도</option>
+        <option value="img17">지상시정</option>
+        <option value="img18">평균풍속(10분)</option>
+        <option value="img19">순간풍속(10분)</option>
+        <option disabled>────────────</option>
+        <option value="img9">신적설 3시간</option>
+        <option value="img10">신적설 24시간</option>
+        <option value="img11">신적설(일)</option> 
+        <option value="img12">현재 적설량</option>
+        <option value="img14">습구온도 1.2</option>
+        <option value="img15">도로살얼음가능성</option>
+      </select>
+
+      <span id="timeLabel"></span>
+    </div>
+  </div>
+</body>
+</html>
